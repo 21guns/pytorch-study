@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "pytorch-study"
+version = "0.1.0"
+description = ""
+authors = ["jliu <liujun@ktjr.com>"]
+readme = "README.md"
+packages = [{include = "pytorch"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
