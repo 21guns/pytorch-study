@@ -15,6 +15,7 @@ import zipfile
 from pathlib import Path
 
 import requests
+import random
 
 # Walk through an image classification directory and find out how many files (images)
 # are in each subdirectory.
@@ -292,3 +293,142 @@ def download_data(source: str,
             os.remove(data_path / target_file)
     
     return image_path
+
+def eval_model(model: torch.nn.Module,
+               data_loader:torch.utils.data.DataLoader,
+               loss_fn: torch.nn.Module,
+                accuracy_fn,
+                device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"):
+
+    loss, acc = 0,0
+    model.eval()
+    with torch.inference_mode():
+        for x, y in data_loader:
+            x,y = x.to(device), y.to(device)
+            y_pred = model(x)
+            loss += loss_fn(y_pred, y)
+            acc += accuracy_fn(y, y_pred.argmax(dim=1))
+        loss /=len(data_loader)
+        acc /=len(data_loader)
+    return {"model_name": model.__class__.__name__,
+            "model_loss": loss.item(),
+            "model_acc": acc}
+
+def train_step(model: torch.nn.Module,
+               data_loader: torch.utils.data.DataLoader,
+               loss_fn: torch.nn.Module,
+               optimizer: torch.optim.Optimizer,
+               accuracy_fn,
+               device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") :
+    train_loss, train_acc = 0,0
+    model.to(device)
+    for batch, (X, y) in enumerate(data_loader):
+        X, y = X.to(device), y.to(device)
+
+        y_pred = model(X)
+        loss = loss_fn(y_pred, y)
+        train_loss += loss
+        train_acc += accuracy_fn(y, y_pred.argmax(dim=1))
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    train_loss /= len(data_loader)
+    train_acc /= len(data_loader)
+    print(f"Train loss: {train_loss}, Train acc: {train_acc}")
+def test_step(model: torch.nn.Module,
+              data_loader: torch.utils.data.DataLoader,
+              loss_fn: torch.nn.Module,
+              accuracy_fn,
+              device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") :
+    test_loss, test_acc = 0,0
+    model.to(device)
+    model.eval()
+    with torch.inference_mode():
+        for X,y in data_loader:
+            X, y = X.to(device), y.to(device)
+            y_pred = model(X)
+            test_loss += loss_fn(y_pred, y)
+            test_acc += accuracy_fn(y, y_pred.argmax(dim=1))
+        test_loss /= len(data_loader)
+        test_acc /= len(data_loader)
+        print(f"Test loss: {test_loss}, Test acc: {test_acc}")
+
+def make_predictions(model: torch.nn.Module,
+                        data: list,
+                        device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"):
+    model.to(device)
+    model.eval()
+    pred_prods = []
+    with torch.inference_mode():
+        for sample in data:
+            sample = torch.unsqueeze(sample, dim=0).to(device)
+            pred_logit = model(sample)
+            pred_prob = torch.softmax(pred_logit.squeeze(), dim=0)
+            pred_prods.append(pred_prob)
+    return  torch.stack(pred_prods)
+
+from PIL import Image
+def plot_transformed_images(image_path, transform, n=3, seed=42):
+    random.seed(seed)
+    random_image_paths = random.sample(image_path, n)
+    for image_path in random_image_paths:
+        with Image.open(image_path) as f:
+            fig, ax = plt.subplots(1, 2)
+            ax[0].imshow(f)
+            ax[0].set_title(f"Original\nSize: {f.size}")
+            ax[0].axis("off")
+
+            transformed_image = transform(f).permute(1, 2, 0)
+            ax[1].imshow(transformed_image)
+            ax[1].set_title(f"Transformed\nSize: {transformed_image.shape}")
+            ax[1].axis("off")
+
+            fig.suptitle(f"Class: {image_path.parent.stem}", fontsize=16)
+    plt.show()
+
+from typing import Tuple, Dict, List
+def find_classes(directory: str) -> Tuple[List[str], Dict[str, int]]:
+    """
+        Find the calss folder names in a target directory.
+        Assumes target directory is in standard image calssification format.
+        Args:
+            directory (str): A target directory.
+        Returns:
+            Tuple[List[str], Dict[str, int]]: A tuple of class folder names and class count.
+        Example usage:
+            find_classes("pizza_steak_sushi")  >>>  (["pizza", "steak", "sushi"], {pizza: 0, steak: 1, sushi: 2})
+    """
+    classes = sorted(entry.name for entry in os.scandir(directory) if entry.is_dir())
+    if not classes:
+        raise FileNotFoundError(f"No class folders found in {directory}")
+    class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
+    return classes, class_to_idx
+
+def display_random_images(dataset: torch.utils.data.Dataset,
+                          classes:  List[str] = None,
+                          n: int = 10,
+                          display_shape: bool = True,
+                          seed: int = None) :
+    if n > 10:
+        n = 10
+        display_shape = False
+    if seed:
+        random.seed(seed)
+    random_samples_idx = random.sample(range(len(dataset)), n)
+
+    plt.figure(figsize=(16,8))
+
+    for i, targ_sample in enumerate(random_samples_idx):
+        targ_image, targ_label = dataset[targ_sample][0], dataset[targ_sample][1]
+        targ_image_adjusted = targ_image.permute(1, 2, 0)
+        plt.subplot(1, n, i+1)
+        plt.imshow(targ_image_adjusted)
+        plt.axis("off")
+        if classes:
+            title = f"Class: {classes[targ_label]}"
+            if display_shape:
+                title =title + f"Shape: {targ_image_adjusted.shape}"
+        plt.title(title)
+    plt.show()
