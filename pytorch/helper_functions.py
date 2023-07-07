@@ -314,7 +314,7 @@ def eval_model(model: torch.nn.Module,
             "model_loss": loss.item(),
             "model_acc": acc}
 
-def train_step(model: torch.nn.Module,
+def train_step_accuary(model: torch.nn.Module,
                data_loader: torch.utils.data.DataLoader,
                loss_fn: torch.nn.Module,
                optimizer: torch.optim.Optimizer,
@@ -337,7 +337,7 @@ def train_step(model: torch.nn.Module,
     train_loss /= len(data_loader)
     train_acc /= len(data_loader)
     print(f"Train loss: {train_loss}, Train acc: {train_acc}")
-def test_step(model: torch.nn.Module,
+def test_step_accuary(model: torch.nn.Module,
               data_loader: torch.utils.data.DataLoader,
               loss_fn: torch.nn.Module,
               accuracy_fn,
@@ -432,3 +432,71 @@ def display_random_images(dataset: torch.utils.data.Dataset,
                 title =title + f"Shape: {targ_image_adjusted.shape}"
         plt.title(title)
     plt.show()
+
+def train_step(model: torch.nn.Module,
+               data_loader: torch.utils.data.DataLoader,
+               loss_fn: torch.nn.Module,
+               optimizer: torch.optim.Optimizer,
+               device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") :
+    train_loss, train_acc = 0,0
+    model.train()
+    for batch, (X, y) in enumerate(data_loader):
+        X, y = X.to(device), y.to(device)
+        y_pred = model(X)
+        loss = loss_fn(y_pred, y)
+        train_loss += loss.item()
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
+        train_acc += (y_pred_class == y).sum().item()/len(y_pred)
+
+    train_loss /= len(data_loader)
+    train_acc /= len(data_loader)
+    return train_loss, train_acc
+def test_step(model: torch.nn.Module,
+              dataloader: torch.utils.data.DataLoader,
+              loss_fn: torch.nn.Module,
+              device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") :
+    test_loss, test_acc = 0,0
+    model.eval()
+    with torch.inference_mode():
+        for batch, (X, y) in enumerate(dataloader):
+            X, y = X.to(device), y.to(device)
+            test_pred_logits = model(X)
+
+            loss = loss_fn(test_pred_logits, y)
+            test_loss += loss.item()
+
+            test_pred_labels = test_pred_logits.argmax(dim=1)
+            test_acc += (test_pred_labels == y).sum().item()/len(test_pred_logits)
+
+    test_loss /= len(dataloader)
+    test_acc /= len(dataloader)
+    return test_loss, test_acc
+
+from tqdm.auto import tqdm
+
+def train(model: torch.nn.Module,
+          train_dataloader: torch.utils.data.DataLoader,
+          test_dataloader: torch.utils.data.DataLoader,
+          loss_fn: torch.nn.Module,
+          optimizer: torch.optim.Optimizer,
+          epochs: int = 5,
+          device: torch.device = "cuda" if torch.cuda.is_available() else "cpu") :
+    
+    results = {"train_loss": [], "train_acc": [], "test_loss": [], "test_acc": []}
+
+    for epoch in tqdm(range(epochs)):
+        train_loss, train_acc = train_step(model, train_dataloader, loss_fn, optimizer, device)
+        test_loss, test_acc = test_step(model, test_dataloader, loss_fn, device)
+
+        print(f"Epoch: {epoch}, Train Loss: {train_loss}, Train Acc: {train_acc}, Test Loss: {test_loss}, Test Acc: {test_acc}")
+
+        results["train_loss"].append(train_loss)
+        results["train_acc"].append(train_acc)
+        results["test_loss"].append(test_loss)
+        results["test_acc"].append(test_acc)
+    return results

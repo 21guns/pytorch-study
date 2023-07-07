@@ -180,8 +180,8 @@ loss_fn = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model_2.parameters(), lr=0.1)
 for epoch in tqdm(range(epochs)):
     print(f"Epoch: {epoch}")
-    train_step(model_2, train_dataloader, loss_fn, optimizer, accuracy_fn)
-    test_step(model_2, test_dataloader, loss_fn, accuracy_fn)
+    train_step_accuary(model_2, train_dataloader, loss_fn, optimizer, accuracy_fn)
+    test_step_accuary(model_2, test_dataloader, loss_fn, accuracy_fn)
 
 train_time_end_on_cpu = timer()
 total_train_time_model_2 = print_train_time(train_time_start_on_cpu, train_time_end_on_cpu)
