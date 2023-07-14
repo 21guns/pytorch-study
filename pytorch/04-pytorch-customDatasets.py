@@ -197,6 +197,24 @@ print(f"Model 1 took {end_time - start_time} seconds to train")
 # plot_loss_curves(model_1_results)
 # plt.show()
 
-custom_image_path = image_path / "04-pizza-dad.jpeg"
+custom_image_path = data_path / "04-pizza-dad.jpeg"
 import torchvision
-custom_image_uint8 = torchvision.io.read_image(custom_image_path)
+# custom_image_uint8 = torchvision.io.read_image(custom_image_path)
+custom_image = torchvision.io.read_image(str(custom_image_path)).type(torch.float32)
+custom_image = custom_image / 255
+custom_image_transform = transforms.Compose([
+    transforms.Resize(size=(64, 64)),
+])
+# custom_image_transformed = custom_image_transform(custom_image)
+# model_1.eval()
+# with torch.no_grad():
+#     # prediction = model_1(custom_image_transformed)
+#     custom_image_transformed_with_batch_size = custom_image_transformed.unsqueeze(0)
+#     prediction = model_1(custom_image_transformed_with_batch_size)
+#     print(f"Prediction: {prediction}")
+#     custom_image_pred_prods =  torch.softmax(prediction, dim=1)
+#     print(f"Prediction Prods: {custom_image_pred_prods}")
+#     custom_image_pred_label = torch.argmax(custom_image_pred_prods, dim=1)
+#     custom_image_pred_class = train_data_augment.classes[custom_image_pred_label]
+#     print(f"Prediction Class: {custom_image_pred_class}")
+pred_and_plot_image(model=model_1, image_path=custom_image_path, transform=custom_image_transform)

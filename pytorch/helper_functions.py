@@ -500,3 +500,50 @@ def train(model: torch.nn.Module,
         results["test_loss"].append(test_loss)
         results["test_acc"].append(test_acc)
     return results
+
+def pred_and_plot_image_v2(model: torch.nn.Module,
+                           image_path: str,
+                           class_names: List[str] = None,
+                           image_size: Tuple[int, int] = (224, 224),
+                           transform: torchvision.transforms = None,
+                           device: torch.device = "cuda" if torch.cuda.is_available() else "cpu"):
+    
+    img = Image.open(image_path)
+    if transform is not None:
+        image_tansform = transform
+    else:
+        image_tansform = torchvision.transforms.Compose([
+            torchvision.transforms.Resize(image_size),
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+    model.to(device)
+    model.eval()
+    with torch.inference_mode():
+        image = image_tansform(img).unsqueeze(0).to(device)
+        pred = model(image.to(device))
+        pred_prob = torch.softmax(pred, dim=1)
+        pred_label = torch.argmax(pred_prob, dim=1)
+
+        plt.figure()
+        plt.imshow(img)
+        plt.title(f"Predicted Label: {class_names[pred_label]} | Probability: {pred_prob.max():.3f}")
+        plt.axis(False)
+
+
+def  create_writer(
+        experiment_name: str,
+        model_name: str,
+        extra: str = None
+) -> torch.utils.tensorboard.SummaryWriter:
+    from  datetime import datetime
+    import os
+    timestamp =  datetime.now().strftime("%Y-%m-%d")
+    if extra :
+        log_dir = os.path.join("runs", experiment_name, model_name, timestamp, extra)
+    else :
+        log_dir = os.path.join("runs", experiment_name, model_name, timestamp)
+    print(f"Log dir: {log_dir}")
+    writer = torch.utils.tensorboard.SummaryWriter(log_dir)
+    return writer
+    
