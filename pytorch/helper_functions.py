@@ -531,11 +531,12 @@ def pred_and_plot_image_v2(model: torch.nn.Module,
         plt.axis(False)
 
 
+from torch.utils.tensorboard import SummaryWriter
 def  create_writer(
         experiment_name: str,
         model_name: str,
         extra: str = None
-) -> torch.utils.tensorboard.SummaryWriter:
+) -> SummaryWriter:
     from  datetime import datetime
     import os
     timestamp =  datetime.now().strftime("%Y-%m-%d")
@@ -544,6 +545,6 @@ def  create_writer(
     else :
         log_dir = os.path.join("runs", experiment_name, model_name, timestamp)
     print(f"Log dir: {log_dir}")
-    writer = torch.utils.tensorboard.SummaryWriter(log_dir)
+    writer = SummaryWriter(log_dir)
     return writer
     

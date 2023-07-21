@@ -100,3 +100,64 @@ effnetb2_weights = torchvision.models.EfficientNet_B2_Weights.DEFAULT
 effnetb2 = torchvision.models.efficientnet_b2(weights=effnetb2_weights)
 
 OUT_FEATURES = len(class_names)
+
+def create_effnetb0():
+    weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
+    model = torchvision.models.efficientnet_b0(weights=weights)
+
+    for param in model.features.parameters():
+        param.requires_grad = False
+    
+    set_seeds()
+    model.classifier = torch.nn.Sequential(
+        torch.nn.Dropout(p=0.2),
+        torch.nn.Linear(1280, OUT_FEATURES)
+    )
+
+    model.name = "EfficientNetB0"
+    return model
+def create_effnetb2():
+    weights = torchvision.models.EfficientNet_B2_Weights.DEFAULT
+    model = torchvision.models.efficientnet_b2(weights=weights)
+
+    for param in model.features.parameters():
+        param.requires_grad = False
+    
+    set_seeds()
+    model.classifier = torch.nn.Sequential(
+        torch.nn.Dropout(p=0.3),
+        torch.nn.Linear(1408, OUT_FEATURES)
+    )
+
+    model.name = "EfficientNetB2"
+    return model
+
+num_epochs = [5, 10]
+models = ["EfficientNetB0", "EfficientNetB2"]
+
+train_dataloaders = {"10_percent": train_dataloader_10_percent, "20_percent": train_dataloader_20_percent}
+
+experiment_number = 0
+
+for dataloader_name, train_dataloader in train_dataloaders.items():
+    for epoch in num_epochs:
+        for model_name in models:
+            experiment_number += 1
+            print(f"Experiment number: {experiment_number}")
+            print(f"Model: {model_name}")
+            print(f"Epoch: {epoch}")
+            print(f"Dataloader: {dataloader_name}")
+
+            if model_name == "EfficientNetB0":
+                model = create_effnetb0()
+            elif model_name == "EfficientNetB2":
+                model = create_effnetb2()
+
+            loss_fn = torch.nn.CrossEntropyLoss()
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+            train(model, train_dataloader, test_dataloader, loss_fn, optimizer, epochs=epoch, 
+                  writer=create_writer(dataloader_name, model_name, f"{epoch}_epochs"))
+            
+            # save_model()
+            print("-" * 50 + "\n")
